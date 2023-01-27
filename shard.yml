@@ -1,0 +1,21 @@
+name: crystal-mango
+version: 0.1.0
+
+authors:
+  - Gustavo Giráldez <ggiraldez@manas.tech>
+
+targets:
+  crystal-mango:
+    main: src/crystal-mango.cr
+
+crystal: 1.7.1
+
+license: MIT
+
+dependencies:
+  crystglfw:
+    github: calebuharrison/CrystGLFW
+    branch: master
+  lib_gl:
+    github: calebuharrison/LibGL
+    branch: master

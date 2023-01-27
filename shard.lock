@@ -1,0 +1,14 @@
+version: 2.0
+shards:
+  crystglfw:
+    git: https://github.com/calebuharrison/crystglfw.git
+    version: 0.2.0+git.commit.53de73c6ec07999ad11c42512929f0eff6f617a9
+
+  lib_gl:
+    git: https://github.com/calebuharrison/libgl.git
+    version: 0.1.0+git.commit.fed2ca7f6cd15efea94458b234c3ca5b0a8ffc5e
+
+  lib_glfw:
+    git: https://github.com/calebuharrison/libglfw.git
+    version: 0.1.0+git.commit.4cf7c3774f278d7e044bb30a35b104f5b12fdc53
+
