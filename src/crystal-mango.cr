@@ -1,5 +1,6 @@
 require "lib_gl"
 require "crystglfw"
+require "stumpy_png"
 require "./shader"
 
 include CrystGLFW
@@ -30,10 +31,11 @@ end
 
 def setup_vbo
   vertices = [
-    -0.5, -0.5, 0.0, 1.0, 0.0, 0.0, 2.0,  # bottom left
-    0.0, -0.5, 0.0, 0.0, 1.0, 0.0,  4.0,  # bottom center
-    0.5, -0.5, 0.0, 0.0, 0.0, 1.0,  3.0,  # bottom right
-    0.0, 0.5, 0.0, 1.0, 1.0, 1.0,   6.0   # top
+    # positions       # colors        # texture  # other
+    -0.5, -0.5, 0.0,  1.0, 0.0, 0.0,  0.0, 0.0,  2.0,  # bottom left
+    +0.5, -0.5, 0.0,  0.0, 1.0, 0.0,  1.0, 0.0,  4.0,  # bottom right
+    +0.5, +0.5, 0.0,  0.0, 0.0, 1.0,  1.0, 1.0,  3.0,  # top right
+    -0.5, +0.5, 0.0,  1.0, 1.0, 1.0,  0.0, 1.0,  6.0   # top left
   ] of LibGL::Float
 
   indices = [
@@ -55,26 +57,75 @@ def setup_vbo
                     indices,
                     LibGL::STATIC_DRAW)
 
-  stride = 7
+  stride = 9
+
+  # position attribute
   LibGL.vertex_attrib_pointer(0, 3, LibGL::FLOAT, LibGL::FALSE,
                               stride * sizeof(LibGL::Float),
                               Pointer(Void).new(0))
   LibGL.enable_vertex_attrib_array(0)
 
+  # color attribute
   LibGL.vertex_attrib_pointer(1, 3, LibGL::FLOAT, LibGL::FALSE,
                               stride * sizeof(LibGL::Float),
                               Pointer(Void).new(3 * sizeof(LibGL::Float)))
   LibGL.enable_vertex_attrib_array(1)
 
-  LibGL.vertex_attrib_pointer(2, 1, LibGL::FLOAT, LibGL::FALSE,
+  # texture attribute
+  LibGL.vertex_attrib_pointer(2, 2, LibGL::FLOAT, LibGL::FALSE,
                               stride * sizeof(LibGL::Float),
                               Pointer(Void).new(6 * sizeof(LibGL::Float)))
   LibGL.enable_vertex_attrib_array(2)
 
+  # other attribute
+  LibGL.vertex_attrib_pointer(3, 1, LibGL::FLOAT, LibGL::FALSE,
+                              stride * sizeof(LibGL::Float),
+                              Pointer(Void).new(8 * sizeof(LibGL::Float)))
+  LibGL.enable_vertex_attrib_array(3)
+
   vbo
 end
 
-def render(program : ShaderProgram, vao)
+class StumpyCore::Canvas
+  def flip!
+    (0...@height // 2).each do |y|
+      (0...@width).each do |x|
+        tmp = self[x, y]
+        self[x, y] = self[x, @height - y - 1]
+        self[x, @height - y - 1] = tmp
+      end
+    end
+  end
+end
+
+def load_texture(texture_filename, flipped = false)
+  LibGL.gen_textures(1, out texture)
+
+  canvas = StumpyPNG.read(texture_filename)
+  canvas.flip! if flipped
+
+  LibGL.bind_texture(LibGL::TEXTURE_2D, texture)
+  LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_WRAP_S, LibGL::REPEAT)
+  LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_WRAP_T, LibGL::REPEAT)
+  LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MIN_FILTER, LibGL::LINEAR_MIPMAP_LINEAR)
+  LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MAG_FILTER, LibGL::LINEAR)
+
+  LibGL.tex_image_2d(LibGL::TEXTURE_2D,     # texture type
+                     0,                     # mipmap level
+                     LibGL::RGB,            # format for the texture
+                     canvas.width,
+                     canvas.height,         # size of the texture
+                     0,
+                     # Stumpy's pixels are RGBA with 16-bit values
+                     LibGL::RGBA,           # format of the data
+                     LibGL::UNSIGNED_SHORT, # datatype of the data
+                     canvas.pixels)
+  LibGL.generate_mipmap(LibGL::TEXTURE_2D)
+
+  texture
+end
+
+def render(program : ShaderProgram, vao, texture1, texture2)
   LibGL.clear_color(0.2, 0.3, 0.3, 1.0)
   LibGL.clear(LibGL::COLOR_BUFFER_BIT)
 
@@ -82,9 +133,15 @@ def render(program : ShaderProgram, vao)
 
   time_value = CrystGLFW.time
   program.set_uniform "time", time_value.to_f32 * 5.0_f32
-  program.set_uniform "jitter_radius", 0.05
+  program.set_uniform "jitter_radius", 0.01
 
   # render the triangles
+  LibGL.active_texture(LibGL::TEXTURE0)
+  LibGL.bind_texture(LibGL::TEXTURE_2D, texture1)
+
+  LibGL.active_texture(LibGL::TEXTURE1)
+  LibGL.bind_texture(LibGL::TEXTURE_2D, texture2)
+
   LibGL.bind_vertex_array vao
   LibGL.draw_elements(LibGL::TRIANGLES, 6,
                       LibGL::UNSIGNED_INT,
@@ -116,6 +173,13 @@ CrystGLFW.run do
   program = ShaderProgram.build(File.read("shaders/vertex.glsl"),
                                 File.read("shaders/fragment.glsl"))
 
+  program.use
+  program.set_uniform("texture1", 0)
+  program.set_uniform("texture2", 1)
+
+  texture1 = load_texture("textures/wall.png")
+  texture2 = load_texture("textures/awesomeface.png", true)
+
   # setup Vertex Attribute Object for the triangles
   vao = setup_vao
   # setup Vertex Buffer Object
@@ -125,13 +189,11 @@ CrystGLFW.run do
   LibGL.get_integer_v(LibGL::MAX_VERTEX_ATTRIBS, out max_attribs)
   puts "Max number of attributes #{max_attribs}"
 
-  # NEXT: for loading textures, use stumpy_png
-
   until window.should_close?
     CrystGLFW.poll_events
     process_input window
 
-    render program, vao
+    render program, vao, texture1, texture2
 
     window.swap_buffers
   end

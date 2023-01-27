@@ -56,6 +56,11 @@ struct ShaderProgram
     LibGL.uniform_1ui(location, value)
   end
 
+  def set_uniform(name : String, value : LibGL::Int)
+    location = LibGL.get_uniform_location(@handle, name)
+    LibGL.uniform_1i(location, value)
+  end
+
   def set_uniform(name : String, value : LibGL::Float)
     location = LibGL.get_uniform_location(@handle, name)
     LibGL.uniform_1f(location, value)
