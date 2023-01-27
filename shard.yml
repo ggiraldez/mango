@@ -19,3 +19,6 @@ dependencies:
   lib_gl:
     github: calebuharrison/LibGL
     branch: master
+  stumpy_png:
+    github: stumpycr/stumpy_png
+    version: "~> 5.0"
