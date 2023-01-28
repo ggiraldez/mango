@@ -1,4 +1,5 @@
 require "lib_gl"
+require "./mate"
 
 struct ShaderProgram
   @handle : LibGL::UInt
@@ -64,5 +65,10 @@ struct ShaderProgram
   def set_uniform(name : String, value : LibGL::Float)
     location = LibGL.get_uniform_location(@handle, name)
     LibGL.uniform_1f(location, value)
+  end
+
+  def set_uniform(name : String, value : Mat4f)
+    location = LibGL.get_uniform_location(@handle, name)
+    LibGL.uniform_matrix_4fv(location, 1, LibGL::FALSE, value)
   end
 end

@@ -129,11 +129,18 @@ def render(program : ShaderProgram, vao, texture1, texture2)
   LibGL.clear_color(0.2, 0.3, 0.3, 1.0)
   LibGL.clear(LibGL::COLOR_BUFFER_BIT)
 
+  time_value = CrystGLFW.time.to_f32
+
+  transform = Mat4f.new(1.0)
+  transform = transform.translate(Vec3f.new(0.5, -0.5, 0.0))
+  transform = transform.rotate(time_value, Vec3f.new(0.0, 0.0, 1.0))
+  transform = transform.scale(Vec3f.new(0.5, 0.5, 1.0))
+
   program.use
 
-  time_value = CrystGLFW.time
-  program.set_uniform "time", time_value.to_f32 * 5.0_f32
+  program.set_uniform "time", time_value * 5.0_f32
   program.set_uniform "jitter_radius", 0.01
+  program.set_uniform "transform", transform
 
   # render the triangles
   LibGL.active_texture(LibGL::TEXTURE0)
