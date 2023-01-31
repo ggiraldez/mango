@@ -68,7 +68,7 @@ struct Mat4(T)
   end
 
   def translate(offset : Vec3(T))
-    self * Mat4(T).translation(offset)
+    Mat4(T).translation(offset) * self
   end
 
   def self.scaling(scale : Vec3(T))
@@ -80,7 +80,7 @@ struct Mat4(T)
   end
 
   def scale(scale : Vec3(T))
-    self * Mat4(T).scaling(scale)
+    Mat4(T).scaling(scale) * self
   end
 
   def self.rotation(radians : T, axis : Vec3(T))
@@ -113,8 +113,54 @@ struct Mat4(T)
   end
 
   def rotate(radians : T, axis : Vec3(T))
-    self * Mat4(T).rotation(radians, axis)
+    Mat4(T).rotation(radians, axis) * self
   end
+
+  def self.ortho(left : T, right : T,
+                 bottom : T, top : T,
+                 near : T, far : T) : Mat4(T)
+    # returns an orthographic projection matrix for a right-handed coordinate
+    # system
+    two : T = 2
+    m = Mat4(T).new(1)
+    m[0, 0] = two / (right - left)
+    m[1, 1] = two / (top - bottom)
+    m[2, 2] = -two / (far - near)
+    m[0, 3] = -(right + left) / (right - left)
+    m[1, 3] = -(top + bottom) / (top - bottom)
+    m[2, 3] = -(far + near) / (far - near)
+    m
+  end
+
+  def self.perspective(fov_y : T, aspect_ratio : T, near : T, far : T) : Mat4(T)
+    # returns a perspective projection matrix given the FOV and aspect ratio,
+    # for a right-handed coordinate system
+    two : T = 2
+    m = Mat4(T).new(0)
+    tanHalfFovy = Math.tan(fov_y / two)
+    m[0, 0] = 1 / (aspect_ratio * tanHalfFovy)
+    m[1, 1] = 1 / tanHalfFovy
+    m[2, 2] = -(far + near) / (far - near)
+    m[2, 3] = - two * far * near / (far - near)
+    m[3, 2] = -1
+    m
+  end
+
+  def self.frustum(left : T, right : T,
+                   bottom : T, top : T,
+                   near : T, far : T) : Mat4(T)
+    two : T = 2
+    m = Mat4(T).new(0)
+    m[0, 0] = two * near / (right - left)
+    m[0, 2] = (right + left) / (right - left)
+    m[1, 1] = two * near / (top - bottom)
+    m[1, 2] = (top + bottom) / (top - bottom)
+    m[2, 2] = -(far + near) / (far - near)
+    m[2, 3] = -(two * far * near) / (far - near)
+    m[3, 2] = -1
+    m
+  end
+
 end
 
 alias Mat4f = Mat4(Float32)

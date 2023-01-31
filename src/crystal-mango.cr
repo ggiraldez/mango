@@ -5,13 +5,9 @@ require "./shader"
 
 include CrystGLFW
 
-def resize_window(size)
-  # TODO: handle the window aspect ratio
-  LibGL.viewport(0, 0, size[:width], size[:height])
-end
-
 def process_input(window)
   if window.key_pressed?(Key::Escape)
+    puts "Exiting"
     window.should_close
   end
 
@@ -125,22 +121,45 @@ def load_texture(texture_filename, flipped = false)
   texture
 end
 
-def render(program : ShaderProgram, vao, texture1, texture2)
+struct Float32
+  def to_radians : Float32
+    (self * Math::PI) / 180.0_f32
+  end
+end
+
+def render(program : ShaderProgram, vao, texture1, texture2, aspect_ratio)
   LibGL.clear_color(0.2, 0.3, 0.3, 1.0)
   LibGL.clear(LibGL::COLOR_BUFFER_BIT)
 
   time_value = CrystGLFW.time.to_f32
 
-  transform = Mat4f.new(1.0)
-  transform = transform.translate(Vec3f.new(0.5, -0.5, 0.0))
-  transform = transform.rotate(time_value, Vec3f.new(0.0, 0.0, 1.0))
-  transform = transform.scale(Vec3f.new(0.5, 0.5, 1.0))
+  transform = Mat4f.new(1)
+
+  # transform = transform.scale(Vec3f.new(0.5, 0.5, 1.0))
+  # transform = transform.rotate(time_value, Vec3f.new(0.0, 0.0, 1.0))
+  # transform = transform.translate(Vec3f.new(0.5, -0.5, 0.0))
+
+  transform = transform.rotate(-55.0_f32.to_radians, Vec3f.new(1, 0, 0))
+  transform = transform.translate(Vec3f.new(0, 0, -3))
+
+  # projection = if aspect_ratio >= 1
+  #                Mat4f.ortho(-1, 1, -1 / aspect_ratio, 1 / aspect_ratio, -1, 1)
+  #              else
+  #                Mat4f.ortho(-aspect_ratio, aspect_ratio, -1, 1, -1, 1)
+  #              end
+
+  # projection = Mat4f.perspective((Math::PI / 4).to_f32, aspect_ratio, 0.1, 100)
+  projection = if aspect_ratio >= 1
+                 Mat4f.frustum(-1, 1, -1 / aspect_ratio, 1 / aspect_ratio, 2, 5)
+               else
+                 Mat4f.frustum(-aspect_ratio, aspect_ratio, -1, 1, 2, 5)
+               end
 
   program.use
 
   program.set_uniform "time", time_value * 5.0_f32
   program.set_uniform "jitter_radius", 0.01
-  program.set_uniform "transform", transform
+  program.set_uniform "transform", projection * transform
 
   # render the triangles
   LibGL.active_texture(LibGL::TEXTURE0)
@@ -169,12 +188,10 @@ CrystGLFW.run do
 
   window = Window.new title: "Crystal Mango", hints: hints
   window.make_context_current
-  # this is to setup the initial viewport
-  resize_window(window.size)
 
   window.on_framebuffer_resize do |event|
     # update the viewport if the window was resized
-    resize_window(event.size)
+    LibGL.viewport(0, 0, event.size[:width], event.size[:height])
   end
 
   program = ShaderProgram.build(File.read("shaders/vertex.glsl"),
@@ -200,7 +217,8 @@ CrystGLFW.run do
     CrystGLFW.poll_events
     process_input window
 
-    render program, vao, texture1, texture2
+    aspect_ratio = window.size[:width].to_f32 / window.size[:height].to_f32
+    render program, vao, texture1, texture2, aspect_ratio
 
     window.swap_buffers
   end
