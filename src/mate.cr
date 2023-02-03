@@ -1,3 +1,41 @@
+struct Float32
+  def to_radians : Float32
+    (self * Math::PI) / 180.0_f32
+  end
+end
+
+struct Float64
+  def to_radians : Float64
+    (self * Math::PI) / 180.0_f64
+  end
+end
+
+struct Vec2(T)
+  @data = StaticArray(T, 2).new(0)
+  getter data
+
+  delegate :[], :[]=, to: @data
+
+  def initialize(x : T, y : T)
+    @data[0] = x
+    @data[1] = y
+  end
+
+  def self.new(x : T) : Vec2(T)
+    new x, x
+  end
+
+  def x
+    @data[0]
+  end
+
+  def y
+    @data[1]
+  end
+end
+
+alias Vec2i = Vec2(Int32)
+
 struct Vec3(T)
   @data = StaticArray(T, 3).new(0)
   getter data
@@ -12,6 +50,18 @@ struct Vec3(T)
 
   def self.new(x : T) : Vec3(T)
     new x, x, x
+  end
+
+  def x
+    @data[0]
+  end
+
+  def y
+    @data[1]
+  end
+
+  def z
+    @data[2]
   end
 end
 
@@ -114,6 +164,10 @@ struct Mat4(T)
 
   def rotate(radians : T, axis : Vec3(T))
     Mat4(T).rotation(radians, axis) * self
+  end
+
+  def self.ortho(left : T, right : T, bottom : T, top : T) : Mat4(T)
+    self.ortho(left, right, bottom, top, -1, 1)
   end
 
   def self.ortho(left : T, right : T,
