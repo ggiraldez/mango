@@ -71,4 +71,9 @@ struct ShaderProgram
     location = LibGL.get_uniform_location(@handle, name)
     LibGL.uniform_matrix_4fv(location, 1, LibGL::FALSE, value)
   end
+
+  def set_uniform(name : String, value : Vec3f)
+    location = LibGL.get_uniform_location(@handle, name)
+    LibGL.uniform_3f(location, value.x, value.y, value.z)
+  end
 end
