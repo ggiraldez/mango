@@ -1,6 +1,6 @@
 # crystal-mango
 
-TODO: Write a description here
+Musings using Crystal and OpenGL
 
 ## Installation
 
@@ -24,4 +24,4 @@ TODO: Write development instructions here
 
 ## Contributors
 
-- [Gustavo Giráldez](https://github.com/your-github-user) - creator and maintainer
+- [Gustavo Giráldez](https://github.com/ggiraldez) - creator and maintainer
