@@ -3,14 +3,16 @@ require "./ft/lib_ft.cr"
 
 class TextureFont
   record Character,
-    texture_id : UInt32,
     size : Vec2i,
     bearing : Vec2i,
-    advance : UInt32
+    advance : UInt32,
+    top_left : Vec2f,
+    bottom_right : Vec2f
 
   @characters = Hash(Char, Character).new
   @glyph_vao : UInt32 = 0
   @glyph_vbo : UInt32 = 0
+  @texture : UInt32 = 0
 
   def initialize(filename : String, size : Int32)
     prepare_glyph_vao
@@ -28,6 +30,13 @@ class TextureFont
 
     LibGL.pixel_store_i(LibGL::UNPACK_ALIGNMENT, 1)
 
+    buf_width = 512
+    buf_height = 512
+    buffer = Slice(UInt8).new(buf_width * buf_height)
+    buf_x = 0
+    buf_y = 0
+    buf_row_height = 0
+
     (0...128).each do |c|
       if LibFreeType.load_char(face, c, LibFreeType::LoadFlags::RENDER) != LibFreeType::Error::OK
         puts "error loading character #{c}"
@@ -35,30 +44,53 @@ class TextureFont
       end
 
       glyph = face.value.glyph
+      bitmap = glyph.value.bitmap
 
-      LibGL.gen_textures(1, out texture)
-      LibGL.bind_texture(LibGL::TEXTURE_2D, texture)
-      LibGL.tex_image_2d(LibGL::TEXTURE_2D, 0, LibGL::RED,
-                         glyph.value.bitmap.width,
-                         glyph.value.bitmap.rows,
-                         0,
-                         LibGL::RED,
-                         LibGL::UNSIGNED_BYTE,
-                         glyph.value.bitmap.buffer)
-      LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_WRAP_S, LibGL::CLAMP_TO_EDGE)
-      LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_WRAP_T, LibGL::CLAMP_TO_EDGE)
-      LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MIN_FILTER, LibGL::LINEAR)
-      LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MAG_FILTER, LibGL::LINEAR)
+      if buf_x + bitmap.width > buf_width
+        buf_x = 0
+        buf_y += buf_row_height
+      end
+      if buf_y + bitmap.rows > buf_height
+        puts "no room left to accomodate character #{c}"
+        next
+      end
 
-      puts "Character #{c.unsafe_chr} (ord #{c}): #{glyph.value.bitmap.width}x#{glyph.value.bitmap.rows}" if c > 32
+      (0...bitmap.rows).each do |row|
+        buf_pos = buf_width * (buf_y + row) + buf_x
+        bitmap_pos = bitmap.width * row
+        (0...bitmap.width).each do |col|
+          buffer[buf_pos + col] = bitmap.buffer[bitmap_pos + col]
+        end
+      end
 
-      @characters[c.unsafe_chr] = Character.new(texture_id: texture,
-                                                size: Vec2i.new(glyph.value.bitmap.width.to_i32,
-                                                                glyph.value.bitmap.rows.to_i32),
+      top_left = Vec2f.new(buf_x.to_f32 / buf_width,
+                           buf_y.to_f32 / buf_height)
+      bottom_right = Vec2f.new((buf_x + bitmap.width).to_f32 / buf_width,
+                               (buf_y + bitmap.rows).to_f32 / buf_height)
+
+      @characters[c.unsafe_chr] = Character.new(size: Vec2i.new(bitmap.width.to_i32, bitmap.rows.to_i32),
                                                 bearing: Vec2i.new(glyph.value.bitmap_left,
                                                                    glyph.value.bitmap_top),
-                                                advance: glyph.value.advance.x.to_u32)
+                                                advance: glyph.value.advance.x.to_u32,
+                                                top_left: top_left,
+                                                bottom_right: bottom_right)
+
+      buf_x += bitmap.width
+      buf_row_height = [buf_row_height, bitmap.rows].max
     end
+
+    puts "Final buffer position: #{buf_x},#{buf_y}"
+
+    LibGL.gen_textures(1, out texture)
+    LibGL.bind_texture(LibGL::TEXTURE_2D, texture)
+    LibGL.tex_image_2d(LibGL::TEXTURE_2D, 0, LibGL::RED,
+                       buf_width, buf_height,
+                       0, LibGL::RED, LibGL::UNSIGNED_BYTE, buffer)
+    LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_WRAP_S, LibGL::CLAMP_TO_EDGE)
+    LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_WRAP_T, LibGL::CLAMP_TO_EDGE)
+    LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MIN_FILTER, LibGL::LINEAR)
+    LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MAG_FILTER, LibGL::LINEAR)
+    @texture = texture
 
     check_ft_call LibFreeType.done_face(face)
     check_ft_call LibFreeType.done_free_type(ft)
@@ -85,6 +117,9 @@ class TextureFont
     LibGL.active_texture(LibGL::TEXTURE0)
     LibGL.bind_vertex_array(@glyph_vao)
 
+    LibGL.bind_texture(LibGL::TEXTURE_2D, @texture)
+    LibGL.bind_buffer(LibGL::ARRAY_BUFFER, @glyph_vbo)
+
     text.each_char do |c|
       ch = @characters[c]
 
@@ -92,25 +127,36 @@ class TextureFont
       ypos = y - (ch.size.y - ch.bearing.y) * scale
       w = ch.size.x * scale
       h = ch.size.y * scale
+      tl = ch.top_left
+      br = ch.bottom_right
 
       vertices = [
-        xpos,     ypos + h, 0, 0,
-        xpos,     ypos,     0, 1,
-        xpos + w, ypos,     1, 1,
-        xpos,     ypos + h, 0, 0,
-        xpos + w, ypos,     1, 1,
-        xpos + w, ypos + h, 1, 0
+        xpos,     ypos + h, tl.x, tl.y,
+        xpos,     ypos,     tl.x, br.y,
+        xpos + w, ypos,     br.x, br.y,
+        xpos,     ypos + h, tl.x, tl.y,
+        xpos + w, ypos,     br.x, br.y,
+        xpos + w, ypos + h, br.x, tl.y
       ] of Float32
 
-      LibGL.bind_texture(LibGL::TEXTURE_2D, ch.texture_id)
-      LibGL.bind_buffer(LibGL::ARRAY_BUFFER, @glyph_vbo)
       LibGL.buffer_sub_data(LibGL::ARRAY_BUFFER, 0, sizeof(Float32) * vertices.size, vertices)
-      LibGL.bind_buffer(LibGL::ARRAY_BUFFER, 0)
       LibGL.draw_arrays(LibGL::TRIANGLES, 0, 6)
       x += (ch.advance >> 6) * scale
     end
 
+    LibGL.bind_buffer(LibGL::ARRAY_BUFFER, 0)
     LibGL.bind_vertex_array(0)
     LibGL.bind_texture(LibGL::TEXTURE_2D, 0)
+  end
+
+  def line_metrics(text : String) : Vec2f
+    width = 0_f32
+    height = 0_f32
+    text.each_char do |c|
+      ch = @characters[c]
+      width += (ch.advance >> 6)
+      height = [height, ch.size.y.to_f32].max
+    end
+    Vec2f.new(width, height)
   end
 end

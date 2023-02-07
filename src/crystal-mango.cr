@@ -178,6 +178,7 @@ def render_text(texture_font : TextureFont, program : ShaderProgram, width, heig
   program.set_uniform "textColor", color
 
   texture_font.render_text("Hello World!", 25.0_f32, 25.0_f32, 1.0_f32)
+  texture_font.render_text(('a'..'z').join, 25.0_f32, 75.0_f32, 1.0_f32)
 end
 
 CrystGLFW.run do
@@ -226,6 +227,10 @@ CrystGLFW.run do
   puts "Max 1D/2D texture size #{max_texture_size}"
 
   texture_font = TextureFont.new("fonts/RobotoMono-Regular.ttf", 48)
+
+  puts texture_font.line_metrics("Hello world!")
+  puts texture_font.line_metrics(('a'..'z').join)
+  puts texture_font.line_metrics(('A'..'Z').join)
 
   until window.should_close?
     CrystGLFW.poll_events

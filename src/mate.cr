@@ -35,6 +35,7 @@ struct Vec2(T)
 end
 
 alias Vec2i = Vec2(Int32)
+alias Vec2f = Vec2(Float32)
 
 struct Vec3(T)
   @data = StaticArray(T, 3).new(0)
