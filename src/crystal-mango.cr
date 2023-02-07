@@ -2,7 +2,7 @@ require "lib_gl"
 require "crystglfw"
 require "stumpy_png"
 require "./shader"
-require "./ft/lib_ft.cr"
+require "./texture_font"
 
 include CrystGLFW
 
@@ -122,61 +122,6 @@ def load_texture(texture_filename, flipped = false)
   texture
 end
 
-record Character,
-  texture_id : UInt32,
-  size : Vec2i,
-  bearing : Vec2i,
-  advance : UInt32
-
-def check_ft_call(error : LibFreeType::Error)
-  raise "error in FreeType #{error}" unless error == LibFreeType::Error::OK
-end
-
-def load_font_into_textures(filename : String) : Hash(Char, Character)
-  characters = Hash(Char, Character).new
-
-  check_ft_call LibFreeType.init_free_type(out ft)
-  check_ft_call LibFreeType.new_face(ft, filename, 0, out face)
-  check_ft_call LibFreeType.set_pixel_sizes(face, 0, 48)
-
-  LibGL.pixel_store_i(LibGL::UNPACK_ALIGNMENT, 1)
-
-  (0...128).each do |c|
-    if LibFreeType.load_char(face, c, LibFreeType::LoadFlags::RENDER) != LibFreeType::Error::OK
-      puts "error loading character #{c}"
-      next
-    end
-
-    glyph = face.value.glyph
-
-    LibGL.gen_textures(1, out texture)
-    LibGL.bind_texture(LibGL::TEXTURE_2D, texture)
-    LibGL.tex_image_2d(LibGL::TEXTURE_2D, 0, LibGL::RED,
-                       glyph.value.bitmap.width,
-                       glyph.value.bitmap.rows,
-                       0,
-                       LibGL::RED,
-                       LibGL::UNSIGNED_BYTE,
-                       face.value.glyph.value.bitmap.buffer)
-    LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_WRAP_S, LibGL::CLAMP_TO_EDGE)
-    LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_WRAP_T, LibGL::CLAMP_TO_EDGE)
-    LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MIN_FILTER, LibGL::LINEAR)
-    LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MAG_FILTER, LibGL::LINEAR)
-
-    characters[c.unsafe_chr] = Character.new(texture_id: texture,
-                                             size: Vec2i.new(glyph.value.bitmap.width.to_i32,
-                                                             glyph.value.bitmap.rows.to_i32),
-                                             bearing: Vec2i.new(glyph.value.bitmap_left,
-                                                                glyph.value.bitmap_top),
-                                             advance: glyph.value.advance.x.to_u32)
-  end
-
-  check_ft_call LibFreeType.done_face(face)
-  check_ft_call LibFreeType.done_free_type(ft)
-
-  characters
-end
-
 def render(program : ShaderProgram, vao, texture1, texture2, aspect_ratio)
   time_value = CrystGLFW.time.to_f32
 
@@ -222,72 +167,17 @@ def render(program : ShaderProgram, vao, texture1, texture2, aspect_ratio)
   LibGL.bind_vertex_array 0
 end
 
-def render_text(program : ShaderProgram, glyph_vao : GlyphVAO, chars : Hash(Char, Character),
-                text : String, x : Float32, y : Float32, scale : Float32, color : Vec3f)
-  program.use
-  program.set_uniform "textColor", color
-
-  LibGL.active_texture(LibGL::TEXTURE0)
-  LibGL.bind_vertex_array(glyph_vao[:vao])
-
-  text.each_char do |c|
-    ch = chars[c]
-
-    xpos = x + ch.bearing.x * scale
-    ypos = y - (ch.size.y - ch.bearing.y) * scale
-    w = ch.size.x * scale
-    h = ch.size.y * scale
-
-    vertices = [
-      xpos,     ypos + h, 0, 0,
-      xpos,     ypos,     0, 1,
-      xpos + w, ypos,     1, 1,
-      xpos,     ypos + h, 0, 0,
-      xpos + w, ypos,     1, 1,
-      xpos + w, ypos + h, 1, 0
-    ] of Float32
-
-    LibGL.bind_texture(LibGL::TEXTURE_2D, ch.texture_id)
-    LibGL.bind_buffer(LibGL::ARRAY_BUFFER, glyph_vao[:vbo])
-    LibGL.buffer_sub_data(LibGL::ARRAY_BUFFER, 0, sizeof(Float32) * vertices.size, vertices)
-    LibGL.bind_buffer(LibGL::ARRAY_BUFFER, 0)
-    LibGL.draw_arrays(LibGL::TRIANGLES, 0, 6)
-    x += (ch.advance >> 6) * scale
-  end
-
-  LibGL.bind_vertex_array(0)
-  LibGL.bind_texture(LibGL::TEXTURE_2D, 0)
-end
-
-def render_text(program : ShaderProgram, glyph_vao : GlyphVAO, chars, width, height)
+def render_text(texture_font : TextureFont, program : ShaderProgram, width, height)
   LibGL.enable(LibGL::BLEND)
   LibGL.blend_func(LibGL::SRC_ALPHA, LibGL::ONE_MINUS_SRC_ALPHA)
 
-  projection = Mat4f.ortho(0, width.to_f32, 0, height.to_f32)
   program.use
-  program.set_uniform "projection", projection
-
+  projection = Mat4f.ortho(0, width.to_f32, 0, height.to_f32)
   color = Vec3f.new(0.5, 0.8, 0.2)
-  render_text(program, glyph_vao, chars, "Hello World!", 25.0_f32, 25.0_f32, 1.0_f32, color)
+  program.set_uniform "projection", projection
+  program.set_uniform "textColor", color
 
-end
-
-alias GlyphVAO = NamedTuple(vao: UInt32, vbo: UInt32)
-
-def prepare_glyph_vao : GlyphVAO
-  LibGL.gen_vertex_arrays(1, out vao)
-  LibGL.gen_buffers(1, out vbo)
-  LibGL.bind_vertex_array(vao)
-  LibGL.bind_buffer(LibGL::ARRAY_BUFFER, vbo)
-  LibGL.buffer_data(LibGL::ARRAY_BUFFER, sizeof(Float32) * 6 * 4,
-                    Pointer(Void).new(0), LibGL::DYNAMIC_DRAW)
-  LibGL.enable_vertex_attrib_array(0)
-  LibGL.vertex_attrib_pointer(0, 4, LibGL::FLOAT, LibGL::FALSE, 4 * sizeof(Float32),
-                              Pointer(Void).new(0))
-  LibGL.bind_buffer(LibGL::ARRAY_BUFFER, 0)
-  LibGL.bind_vertex_array(0)
-
-  GlyphVAO.new(vao: vao, vbo: vbo)
+  texture_font.render_text("Hello World!", 25.0_f32, 25.0_f32, 1.0_f32)
 end
 
 CrystGLFW.run do
@@ -331,8 +221,11 @@ CrystGLFW.run do
   LibGL.get_integer_v(LibGL::MAX_VERTEX_ATTRIBS, out max_attribs)
   puts "Max number of attributes #{max_attribs}"
 
-  chars = load_font_into_textures("fonts/RobotoMono-Regular.ttf")
-  glyph_vao = prepare_glyph_vao
+  # max texture size
+  LibGL.get_integer_v(LibGL::MAX_TEXTURE_SIZE, out max_texture_size)
+  puts "Max 1D/2D texture size #{max_texture_size}"
+
+  texture_font = TextureFont.new("fonts/RobotoMono-Regular.ttf", 48)
 
   until window.should_close?
     CrystGLFW.poll_events
@@ -343,7 +236,7 @@ CrystGLFW.run do
 
     aspect_ratio = window.size[:width].to_f32 / window.size[:height].to_f32
     render program, vao, texture1, texture2, aspect_ratio
-    render_text glyph_program, glyph_vao, chars, window.size[:width], window.size[:height]
+    render_text texture_font, glyph_program, window.size[:width], window.size[:height]
 
     window.swap_buffers
   end
