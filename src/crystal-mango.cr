@@ -3,6 +3,7 @@ require "crystglfw"
 require "stumpy_png"
 require "./shader"
 require "./texture_font"
+require "./paragraph"
 
 include CrystGLFW
 
@@ -167,18 +168,35 @@ def render(program : ShaderProgram, vao, texture1, texture2, aspect_ratio)
   LibGL.bind_vertex_array 0
 end
 
-def render_text(texture_font : TextureFont, program : ShaderProgram, width, height)
-  LibGL.enable(LibGL::BLEND)
-  LibGL.blend_func(LibGL::SRC_ALPHA, LibGL::ONE_MINUS_SRC_ALPHA)
-
+def render_text(texture_font : TextureFont, program : ShaderProgram, size)
   program.use
-  projection = Mat4f.ortho(0, width.to_f32, 0, height.to_f32)
+  projection = Mat4f.ortho(0, size[:width].to_f32, 0, size[:height].to_f32)
   color = Vec3f.new(0.5, 0.8, 0.2)
   program.set_uniform "projection", projection
   program.set_uniform "textColor", color
 
   texture_font.render_text("Hello World!", 25.0_f32, 25.0_f32, 1.0_f32)
-  texture_font.render_text(('a'..'z').join, 25.0_f32, 75.0_f32, 1.0_f32)
+  texture_font.render_text(('a'..'z').join, 25.0_f32, (25 + texture_font.height).to_f32, 1.0_f32)
+end
+
+def render_para(texture_font : TextureFont,
+                renderer : GlyphRenderer,
+                para : String,
+                size)
+  LibGL.active_texture(LibGL::TEXTURE0)
+  LibGL.bind_texture(LibGL::TEXTURE_2D, texture_font)
+
+  p = Paragraph.new(texture_font)
+  p.set_origin(Vec2f.new(12_f32, (size[:height] - texture_font.height).to_f32))
+
+  projection = Mat4f.ortho(0, size[:width].to_f32, 0, size[:height].to_f32)
+  color = Vec3f.new(0.9, 0.9, 0.9)
+  renderer.program.use
+  renderer.program.set_uniform "projection", projection
+  renderer.program.set_uniform "textColor", color
+
+  p.render renderer, para
+  renderer.flush
 end
 
 CrystGLFW.run do
@@ -226,11 +244,18 @@ CrystGLFW.run do
   LibGL.get_integer_v(LibGL::MAX_TEXTURE_SIZE, out max_texture_size)
   puts "Max 1D/2D texture size #{max_texture_size}"
 
-  texture_font = TextureFont.new("fonts/RobotoMono-Regular.ttf", 48)
+  texture_font = TextureFont.new("fonts/RobotoMono-Regular.ttf", 18)
 
   puts texture_font.line_metrics("Hello world!")
   puts texture_font.line_metrics(('a'..'z').join)
   puts texture_font.line_metrics(('A'..'Z').join)
+
+  glyph_renderer = GlyphRenderer.new
+
+  lines = File.read("src/crystal-mango.cr")
+
+  LibGL.enable(LibGL::BLEND)
+  LibGL.blend_func(LibGL::SRC_ALPHA, LibGL::ONE_MINUS_SRC_ALPHA)
 
   until window.should_close?
     CrystGLFW.poll_events
@@ -241,7 +266,8 @@ CrystGLFW.run do
 
     aspect_ratio = window.size[:width].to_f32 / window.size[:height].to_f32
     render program, vao, texture1, texture2, aspect_ratio
-    render_text texture_font, glyph_program, window.size[:width], window.size[:height]
+    # render_text texture_font, glyph_program, window.size
+    render_para texture_font, glyph_renderer, lines, window.size
 
     window.swap_buffers
   end

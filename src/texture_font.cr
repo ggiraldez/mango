@@ -13,10 +13,18 @@ class TextureFont
   @glyph_vao : UInt32 = 0
   @glyph_vbo : UInt32 = 0
   @texture : UInt32 = 0
+  @height : UInt32 = 0
+
+  getter height
+  delegate :[], :has_key?, to: @characters
 
   def initialize(filename : String, size : Int32)
     prepare_glyph_vao
     load_font_into_textures(filename, size)
+  end
+
+  def to_unsafe
+    @texture
   end
 
   private def check_ft_call(error : LibFreeType::Error)
@@ -37,7 +45,7 @@ class TextureFont
     buf_y = 0
     buf_row_height = 0
 
-    (0...128).each do |c|
+    (0...256).each do |c|
       if LibFreeType.load_char(face, c, LibFreeType::LoadFlags::RENDER) != LibFreeType::Error::OK
         puts "error loading character #{c}"
         next
@@ -91,6 +99,7 @@ class TextureFont
     LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MIN_FILTER, LibGL::LINEAR)
     LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MAG_FILTER, LibGL::LINEAR)
     @texture = texture
+    @height = (face.value.size.value.metrics.height >> 6).to_u32
 
     check_ft_call LibFreeType.done_face(face)
     check_ft_call LibFreeType.done_free_type(ft)
@@ -151,12 +160,10 @@ class TextureFont
 
   def line_metrics(text : String) : Vec2f
     width = 0_f32
-    height = 0_f32
     text.each_char do |c|
       ch = @characters[c]
       width += (ch.advance >> 6)
-      height = [height, ch.size.y.to_f32].max
     end
-    Vec2f.new(width, height)
+    Vec2f.new(width, @height.to_f32)
   end
 end

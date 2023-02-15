@@ -6,7 +6,8 @@ lib LibFreeType
   alias GlyphSlot = Pointer(GlyphSlotRec)
   alias SubGlyph = Pointer(Void)     # opaque FT_SubGlyphRec_
   alias SlotInternal = Pointer(Void) # opaque FT_SlotInternalRec_
-  alias Size = Pointer(Void)         # FT_SizeRec_
+  alias SizeInternal = Pointer(Void) # opaque FT_SizeInternalRec_
+  alias Size = Pointer(SizeRec)
   alias Short = LibC::Short
   alias UShort = LibC::UShort
   alias Long = LibC::Long
@@ -48,9 +49,30 @@ lib LibFreeType
 
     flags : LibC::Int
   end
+
   struct Vector
     x : Pos
     y : Pos
+  end
+
+  struct SizeRec
+    face : Face
+    generic : Generic
+    metrics : SizeMetrics
+    internal : SizeInternal
+  end
+
+  struct SizeMetrics
+    x_ppem : UShort
+    y_ppem : UShort
+
+    x_scale : Fixed
+    y_scale : Fixed
+
+    ascender : Pos
+    descender : Pos
+    height : Pos
+    max_advance : Pos
   end
 
   struct GlyphMetrics

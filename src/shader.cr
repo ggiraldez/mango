@@ -20,14 +20,24 @@ struct ShaderProgram
   end
 
   def self.build(vertex_shader_source, fragment_shader_source)
+    self.build(vertex: vertex_shader_source, fragment: fragment_shader_source)
+  end
+
+  def self.build(**sources)
+    raise "need at least vertex and fragment shaders" unless sources[:vertex] && sources[:fragment]
     program = LibGL.create_program
 
-    vertex_shader = compile_shader(LibGL::VERTEX_SHADER,
-                                   vertex_shader_source)
-    LibGL.attach_shader program, vertex_shader
-    fragment_shader = compile_shader(LibGL::FRAGMENT_SHADER,
-                                     fragment_shader_source)
-    LibGL.attach_shader program, fragment_shader
+    shaders = [] of UInt32
+
+    shaders << compile_shader(LibGL::VERTEX_SHADER, sources[:vertex])
+    shaders << compile_shader(LibGL::FRAGMENT_SHADER, sources[:fragment])
+    if source = sources[:geometry]?
+      shaders << compile_shader(LibGL::GEOMETRY_SHADER, source)
+    end
+
+    shaders.each do |shader|
+      LibGL.attach_shader program, shader
+    end
 
     LibGL.link_program program
 
@@ -39,8 +49,9 @@ struct ShaderProgram
       raise "Error linking shader program: #{String.new(info_log.to_slice)}"
     end
 
-    LibGL.delete_shader vertex_shader
-    LibGL.delete_shader fragment_shader
+    shaders.each do |shader|
+      LibGL.delete_shader shader
+    end
 
     new(program)
   end
