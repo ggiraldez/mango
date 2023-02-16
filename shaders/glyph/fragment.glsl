@@ -1,13 +1,28 @@
 #version 330 core
 
 in vec2 tex_coords;
-out vec4 color;
+in vec3 text_color;
+flat in int tex_selector;
 
-uniform sampler2D font;
-uniform vec3 textColor;
+out vec4 frag_color;
+
+uniform sampler2D font_0;
+uniform sampler2D font_1;
+uniform sampler2D font_2;
+uniform sampler2D font_3;
 
 void main()
 {
-  vec4 sampled = vec4(1.0, 1.0, 1.0, texture(font, tex_coords).r);
-  color = vec4(textColor, 1.0) * sampled;
+  float r = 0;
+  if (tex_selector == 1) {
+    r = texture(font_1, tex_coords).r;
+  } else if (tex_selector == 2) {
+    r = texture(font_2, tex_coords).r;
+  } else if (tex_selector == 3) {
+    r = texture(font_3, tex_coords).r;
+  } else {
+    r = texture(font_0, tex_coords).r;
+  }
+
+  frag_color = vec4(text_color, r);
 }

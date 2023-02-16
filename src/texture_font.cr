@@ -167,3 +167,39 @@ class TextureFont
     Vec2f.new(width, @height.to_f32)
   end
 end
+
+class FontFamily
+  getter regular, bold, italic, bold_italic
+
+  def initialize(@regular : TextureFont,
+                 @bold : TextureFont,
+                 @italic : TextureFont,
+                 @bold_italic : TextureFont)
+  end
+
+  def self.load(size : Int32,
+                regular_filename,
+                bold_filename,
+                italic_filename,
+                bold_italic_filename)
+    regular = TextureFont.new(regular_filename, size)
+    bold = if bold_filename
+             TextureFont.new(bold_filename, size)
+           else
+             regular
+           end
+    italic = if italic_filename
+               TextureFont.new(italic_filename, size)
+             else
+               regular
+             end
+    bold_italic = if bold_italic_filename
+                    TextureFont.new(bold_italic_filename, size)
+                  elsif italic_filename
+                    italic
+                  else
+                    bold
+                  end
+    FontFamily.new(regular, bold, italic, bold_italic)
+  end
+end

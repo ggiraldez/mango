@@ -23,11 +23,13 @@ struct RenderGlyph
   @size : Vec2f
   @tex_top_left : Vec2f
   @tex_bottom_right : Vec2f
+  @color : Vec3f
+  @tex_selector : Int32
 
-  def initialize(@pos, @size, @tex_top_left, @tex_bottom_right)
+  def initialize(@pos, @size, @tex_top_left, @tex_bottom_right, @color, @tex_selector)
   end
 
-  Empty = new(Vec2f.new(0), Vec2f.new(0), Vec2f.new(0), Vec2f.new(0))
+  Empty = new(Vec2f.new(0), Vec2f.new(0), Vec2f.new(0), Vec2f.new(0), Vec3f.new(0), 0)
 end
 
 class RenderGlyphVao
@@ -50,17 +52,29 @@ class RenderGlyphVao
                                 Pointer(Void).new(offsetof(RenderGlyph, @size)))
     LibGL.enable_vertex_attrib_array(1)
 
-    # texture attribute
+    # texture top left coords
     LibGL.vertex_attrib_pointer(2, 2, LibGL::FLOAT, LibGL::FALSE,
                                 sizeof(RenderGlyph),
                                 Pointer(Void).new(offsetof(RenderGlyph, @tex_top_left)))
     LibGL.enable_vertex_attrib_array(2)
 
-    # other attribute
+    # texture bottom right coords
     LibGL.vertex_attrib_pointer(3, 2, LibGL::FLOAT, LibGL::FALSE,
                                 sizeof(RenderGlyph),
                                 Pointer(Void).new(offsetof(RenderGlyph, @tex_bottom_right)))
     LibGL.enable_vertex_attrib_array(3)
+
+    # color
+    LibGL.vertex_attrib_pointer(4, 3, LibGL::FLOAT, LibGL::FALSE,
+                                sizeof(RenderGlyph),
+                                Pointer(Void).new(offsetof(RenderGlyph, @color)))
+    LibGL.enable_vertex_attrib_array(4)
+
+    # texture selector
+    LibGL.vertex_attrib_i_pointer(5, 1, LibGL::INT,
+                                  sizeof(RenderGlyph),
+                                  Pointer(Void).new(offsetof(RenderGlyph, @tex_selector)))
+    LibGL.enable_vertex_attrib_array(5)
   end
 
   def use
@@ -171,7 +185,16 @@ class Paragraph
   @origin = Vec2f.new(0)
   @scale = 1_f32
 
-  def initialize(@texture_font : TextureFont)
+  @fonts = [] of TextureFont
+
+  def initialize(*fonts)
+    if fonts.size <= 0
+      raise "at least one font is required"
+    end
+
+    fonts.each do |font|
+      @fonts << font
+    end
   end
 
   def set_origin(@origin : Vec2f)
@@ -179,27 +202,31 @@ class Paragraph
     @y = @origin.y
   end
 
-  def newline
-    @y -= @texture_font.height
+  def newline(which_font : Int32 = 0)
+    @y -= @fonts[which_font].height
     @x = @origin.x
   end
 
-  def render(renderer : GlyphRenderer, text : String)
+  def add_span(renderer : GlyphRenderer, text : String, color : Vec3f, which_font : Int32 = 0)
+    font = @fonts[which_font]
+
     text.each_char do |c|
       if c == '\n'
-        newline
+        newline which_font
         next
       end
 
-      next unless @texture_font.has_key?(c)
-      ch = @texture_font[c]
+      next unless font.has_key?(c)
+      ch = font[c]
 
-      pos = Vec2f.new(@x + ch.bearing.x * @scale,
-                      @y - (ch.size.y - ch.bearing.y) * @scale)
-      size = Vec2f.new(ch.size.x * @scale,
-                       ch.size.y * @scale)
+      if c != ' '
+        pos = Vec2f.new(@x + ch.bearing.x * @scale,
+                        @y - (ch.size.y - ch.bearing.y) * @scale)
+        size = Vec2f.new(ch.size.x * @scale,
+                         ch.size.y * @scale)
 
-      renderer << RenderGlyph.new(pos, size, ch.top_left, ch.bottom_right)
+        renderer << RenderGlyph.new(pos, size, ch.top_left, ch.bottom_right, color, which_font)
+      end
 
       @x += (ch.advance >> 6) * @scale
     end

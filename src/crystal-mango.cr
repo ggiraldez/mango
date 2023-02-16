@@ -179,23 +179,40 @@ def render_text(texture_font : TextureFont, program : ShaderProgram, size)
   texture_font.render_text(('a'..'z').join, 25.0_f32, (25 + texture_font.height).to_f32, 1.0_f32)
 end
 
-def render_para(texture_font : TextureFont,
+def render_para(fonts : FontFamily,
                 renderer : GlyphRenderer,
                 para : String,
                 size)
-  LibGL.active_texture(LibGL::TEXTURE0)
-  LibGL.bind_texture(LibGL::TEXTURE_2D, texture_font)
 
-  p = Paragraph.new(texture_font)
-  p.set_origin(Vec2f.new(12_f32, (size[:height] - texture_font.height).to_f32))
+  LibGL.active_texture(LibGL::TEXTURE0)
+  LibGL.bind_texture(LibGL::TEXTURE_2D, fonts.regular)
+
+  LibGL.active_texture(LibGL::TEXTURE1)
+  LibGL.bind_texture(LibGL::TEXTURE_2D, fonts.bold)
+
+  LibGL.active_texture(LibGL::TEXTURE2)
+  LibGL.bind_texture(LibGL::TEXTURE_2D, fonts.italic)
+
+  LibGL.active_texture(LibGL::TEXTURE3)
+  LibGL.bind_texture(LibGL::TEXTURE_2D, fonts.bold_italic)
+
+  p = Paragraph.new(fonts.regular, fonts.bold, fonts.italic, fonts.bold_italic)
+  p.set_origin(Vec2f.new(12_f32, (size[:height] - fonts.regular.height).to_f32))
 
   projection = Mat4f.ortho(0, size[:width].to_f32, 0, size[:height].to_f32)
-  color = Vec3f.new(0.9, 0.9, 0.9)
   renderer.program.use
   renderer.program.set_uniform "projection", projection
-  renderer.program.set_uniform "textColor", color
+  renderer.program.set_uniform "font_0", 0
+  renderer.program.set_uniform "font_1", 1
+  renderer.program.set_uniform "font_2", 2
+  renderer.program.set_uniform "font_3", 3
 
-  p.render renderer, para
+  colors = [Vec3f.new(0.9, 0.9, 0.9),
+            Vec3f.new(0.9, 0.9, 0.1),
+            Vec3f.new(0.1, 0.9, 0.1)]
+  para.split(" ").each_with_index do |span, i|
+    p.add_span renderer, span + " ", colors[i % 3], i % 4
+  end
   renderer.flush
 end
 
@@ -244,11 +261,19 @@ CrystGLFW.run do
   LibGL.get_integer_v(LibGL::MAX_TEXTURE_SIZE, out max_texture_size)
   puts "Max 1D/2D texture size #{max_texture_size}"
 
-  texture_font = TextureFont.new("fonts/RobotoMono-Regular.ttf", 18)
+  # max texture units
+  LibGL.get_integer_v(LibGL::MAX_TEXTURE_IMAGE_UNITS, out max_texture_units)
+  puts "Max texture units #{max_texture_units}"
 
-  puts texture_font.line_metrics("Hello world!")
-  puts texture_font.line_metrics(('a'..'z').join)
-  puts texture_font.line_metrics(('A'..'Z').join)
+  fonts = FontFamily.load(18,
+                          "fonts/RobotoMono-Regular.ttf",
+                          "fonts/RobotoMono-Bold.ttf",
+                          "fonts/RobotoMono-Italic.ttf",
+                          "fonts/RobotoMono-BoldItalic.ttf")
+
+  puts fonts.regular.line_metrics("Hello world!")
+  puts fonts.regular.line_metrics(('a'..'z').join)
+  puts fonts.regular.line_metrics(('A'..'Z').join)
 
   glyph_renderer = GlyphRenderer.new
 
@@ -266,8 +291,8 @@ CrystGLFW.run do
 
     aspect_ratio = window.size[:width].to_f32 / window.size[:height].to_f32
     render program, vao, texture1, texture2, aspect_ratio
-    # render_text texture_font, glyph_program, window.size
-    render_para texture_font, glyph_renderer, lines, window.size
+    # render_text fonts.regular, glyph_program, window.size
+    render_para fonts, glyph_renderer, lines, window.size
 
     window.swap_buffers
   end

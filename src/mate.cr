@@ -25,13 +25,8 @@ struct Vec2(T)
     new x, x
   end
 
-  def x
-    @data[0]
-  end
-
-  def y
-    @data[1]
-  end
+  def x; @data[0]; end
+  def y; @data[1]; end
 end
 
 alias Vec2i = Vec2(Int32)
@@ -53,20 +48,38 @@ struct Vec3(T)
     new x, x, x
   end
 
-  def x
-    @data[0]
-  end
-
-  def y
-    @data[1]
-  end
-
-  def z
-    @data[2]
-  end
+  def x; @data[0]; end
+  def y; @data[1]; end
+  def z; @data[2]; end
 end
 
 alias Vec3f = Vec3(Float32)
+
+struct Vec4(T)
+  @data = StaticArray(T, 4).new(0)
+  getter data
+
+  delegate :[], :[]=, to: @data
+
+  def initialize(x : T, y : T, z : T, w : T)
+    @data[0] = x
+    @data[1] = y
+    @data[2] = z
+    @data[3] = w
+  end
+
+  def self.new(x : T) : Vec4(T)
+    new x, x, x, x
+  end
+
+  def x; @data[0]; end
+  def y; @data[1]; end
+  def z; @data[2]; end
+  def w; @data[3]; end
+end
+
+alias Vec4f = Vec4(Float32)
+
 
 struct Mat4(T)
   # data is stored in column-major order

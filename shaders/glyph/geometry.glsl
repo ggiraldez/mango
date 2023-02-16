@@ -6,13 +6,20 @@ layout (triangle_strip, max_vertices = 4) out;
 in VS_OUT {
   vec4 top_right;
   vec4 tex_box;
+  vec3 color;
+  int tex_selector;
 } gs_in[];
 
 out vec2 tex_coords;
+out vec3 text_color;
+flat out int tex_selector;
 
 void main() {
   vec4 bottom_left = gl_in[0].gl_Position;
   vec4 top_right = gs_in[0].top_right;
+
+  text_color = gs_in[0].color;
+  tex_selector = gs_in[0].tex_selector;
 
   // bottom left
   gl_Position = bottom_left;
