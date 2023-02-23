@@ -10,8 +10,6 @@ class TextureFont
     bottom_right : Vec2f
 
   @characters = Hash(Char, Character).new
-  @glyph_vao : UInt32 = 0
-  @glyph_vbo : UInt32 = 0
   @texture : UInt32 = 0
   @height : UInt32 = 0
 
@@ -19,7 +17,6 @@ class TextureFont
   delegate :[], :has_key?, to: @characters
 
   def initialize(filename : String, size : Int32)
-    prepare_glyph_vao
     load_font_into_textures(filename, size)
   end
 
@@ -105,59 +102,6 @@ class TextureFont
     check_ft_call LibFreeType.done_free_type(ft)
   end
 
-  def prepare_glyph_vao
-    LibGL.gen_vertex_arrays(1, out vao)
-    LibGL.gen_buffers(1, out vbo)
-    LibGL.bind_vertex_array(vao)
-    LibGL.bind_buffer(LibGL::ARRAY_BUFFER, vbo)
-    LibGL.buffer_data(LibGL::ARRAY_BUFFER, sizeof(Float32) * 6 * 4,
-                      Pointer(Void).new(0), LibGL::DYNAMIC_DRAW)
-    LibGL.enable_vertex_attrib_array(0)
-    LibGL.vertex_attrib_pointer(0, 4, LibGL::FLOAT, LibGL::FALSE, 4 * sizeof(Float32),
-                                Pointer(Void).new(0))
-    LibGL.bind_buffer(LibGL::ARRAY_BUFFER, 0)
-    LibGL.bind_vertex_array(0)
-
-    @glyph_vao = vao
-    @glyph_vbo = vbo
-  end
-
-  def render_text(text : String, x : Float32, y : Float32, scale : Float32)
-    LibGL.active_texture(LibGL::TEXTURE0)
-    LibGL.bind_vertex_array(@glyph_vao)
-
-    LibGL.bind_texture(LibGL::TEXTURE_2D, @texture)
-    LibGL.bind_buffer(LibGL::ARRAY_BUFFER, @glyph_vbo)
-
-    text.each_char do |c|
-      ch = @characters[c]
-
-      xpos = x + ch.bearing.x * scale
-      ypos = y - (ch.size.y - ch.bearing.y) * scale
-      w = ch.size.x * scale
-      h = ch.size.y * scale
-      tl = ch.top_left
-      br = ch.bottom_right
-
-      vertices = [
-        xpos,     ypos + h, tl.x, tl.y,
-        xpos,     ypos,     tl.x, br.y,
-        xpos + w, ypos,     br.x, br.y,
-        xpos,     ypos + h, tl.x, tl.y,
-        xpos + w, ypos,     br.x, br.y,
-        xpos + w, ypos + h, br.x, tl.y
-      ] of Float32
-
-      LibGL.buffer_sub_data(LibGL::ARRAY_BUFFER, 0, sizeof(Float32) * vertices.size, vertices)
-      LibGL.draw_arrays(LibGL::TRIANGLES, 0, 6)
-      x += (ch.advance >> 6) * scale
-    end
-
-    LibGL.bind_buffer(LibGL::ARRAY_BUFFER, 0)
-    LibGL.bind_vertex_array(0)
-    LibGL.bind_texture(LibGL::TEXTURE_2D, 0)
-  end
-
   def line_metrics(text : String) : Vec2f
     width = 0_f32
     text.each_char do |c|
@@ -201,5 +145,27 @@ class FontFamily
                     bold
                   end
     FontFamily.new(regular, bold, italic, bold_italic)
+  end
+
+  enum Variant
+    Regular = 0
+    Bold
+    Italic
+    BoldItalic
+  end
+
+  def [](variant : Variant) : TextureFont
+    case variant
+    when Variant::Regular
+      regular
+    when Variant::Bold
+      bold
+    when Variant::Italic
+      italic
+    when Variant::BoldItalic
+      bold_italic
+    else
+      regular
+    end
   end
 end

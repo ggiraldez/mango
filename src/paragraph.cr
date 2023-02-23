@@ -150,15 +150,36 @@ class GlyphRenderer
   @vbo : RenderGlyphVbo
   @vao : RenderGlyphVao
   @program : ShaderProgram
+  @font_family : FontFamily
 
   getter program
+  getter font_family
 
-  def initialize
+  def initialize(@font_family)
     @vbo = checked RenderGlyphVbo.new(1024)
     @vao = checked RenderGlyphVao.new(@vbo)
     @program = checked ShaderProgram.build(vertex: File.read("shaders/glyph/vertex.glsl"),
                                            fragment: File.read("shaders/glyph/fragment.glsl"),
                                            geometry: File.read("shaders/glyph/geometry.glsl"))
+    @program.use
+    @program.set_uniform "font_0", 0
+    @program.set_uniform "font_1", 1
+    @program.set_uniform "font_2", 2
+    @program.set_uniform "font_3", 3
+  end
+
+  def bind_font_family
+    LibGL.active_texture(LibGL::TEXTURE0)
+    LibGL.bind_texture(LibGL::TEXTURE_2D, @font_family.regular)
+
+    LibGL.active_texture(LibGL::TEXTURE1)
+    LibGL.bind_texture(LibGL::TEXTURE_2D, @font_family.bold)
+
+    LibGL.active_texture(LibGL::TEXTURE2)
+    LibGL.bind_texture(LibGL::TEXTURE_2D, @font_family.italic)
+
+    LibGL.active_texture(LibGL::TEXTURE3)
+    LibGL.bind_texture(LibGL::TEXTURE_2D, @font_family.bold_italic)
   end
 
   def <<(render_glyph : RenderGlyph)
@@ -169,6 +190,8 @@ class GlyphRenderer
   end
 
   def flush
+    bind_font_family
+
     @program.use
     @vao.use
     count = @vbo.update_buffer
@@ -177,6 +200,10 @@ class GlyphRenderer
 
     @vbo.reset
   end
+
+  def new_paragraph
+    Paragraph.new(self)
+  end
 end
 
 class Paragraph
@@ -184,17 +211,9 @@ class Paragraph
   @y : Float32 = 0
   @origin = Vec2f.new(0)
   @scale = 1_f32
+  @renderer : GlyphRenderer
 
-  @fonts = [] of TextureFont
-
-  def initialize(*fonts)
-    if fonts.size <= 0
-      raise "at least one font is required"
-    end
-
-    fonts.each do |font|
-      @fonts << font
-    end
+  def initialize(@renderer)
   end
 
   def set_origin(@origin : Vec2f)
@@ -202,17 +221,18 @@ class Paragraph
     @y = @origin.y
   end
 
-  def newline(which_font : Int32 = 0)
-    @y -= @fonts[which_font].height
+  def newline(variant : FontFamily::Variant = Regular)
+    font = @renderer.font_family[variant]
+    @y -= font.height
     @x = @origin.x
   end
 
-  def add_span(renderer : GlyphRenderer, text : String, color : Vec3f, which_font : Int32 = 0)
-    font = @fonts[which_font]
+  def add_span(text : String, color : Vec3f, variant : FontFamily::Variant = Regular)
+    font = @renderer.font_family[variant]
 
     text.each_char do |c|
       if c == '\n'
-        newline which_font
+        newline variant
         next
       end
 
@@ -225,7 +245,7 @@ class Paragraph
         size = Vec2f.new(ch.size.x * @scale,
                          ch.size.y * @scale)
 
-        renderer << RenderGlyph.new(pos, size, ch.top_left, ch.bottom_right, color, which_font)
+        @renderer << RenderGlyph.new(pos, size, ch.top_left, ch.bottom_right, color, variant.value)
       end
 
       @x += (ch.advance >> 6) * @scale
