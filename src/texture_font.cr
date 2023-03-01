@@ -12,8 +12,10 @@ class TextureFont
   @characters = Hash(Char, Character).new
   @texture : UInt32 = 0
   @height : UInt32 = 0
+  @ascender : UInt32 = 0
+  @descender : UInt32 = 0
 
-  getter height
+  getter height, ascender, descender
   delegate :[], :has_key?, to: @characters
 
   def initialize(filename : String, size : Int32)
@@ -97,6 +99,8 @@ class TextureFont
     LibGL.tex_parameter_i(LibGL::TEXTURE_2D, LibGL::TEXTURE_MAG_FILTER, LibGL::LINEAR)
     @texture = texture
     @height = (face.value.size.value.metrics.height >> 6).to_u32
+    @ascender = (face.value.size.value.metrics.ascender >> 6).to_u32
+    @descender = (-face.value.size.value.metrics.descender >> 6).to_u32
 
     check_ft_call LibFreeType.done_face(face)
     check_ft_call LibFreeType.done_free_type(ft)

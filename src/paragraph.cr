@@ -206,49 +206,87 @@ class GlyphRenderer
   end
 end
 
+struct Rect(T)
+  @left : T
+  @top : T
+  @right : T
+  @bottom : T
+
+  getter left, top, right, bottom
+
+  def initialize(@left, @top, @right, @bottom)
+  end
+
+  def self.empty
+    new(0, 0, 0, 0)
+  end
+
+  def width
+    right - left
+  end
+
+  def height
+    top - bottom
+  end
+end
+
+alias RectF = Rect(Float32)
+
 class Paragraph
   @x : Float32 = 0
   @y : Float32 = 0
-  @origin = Vec2f.new(0)
+  @bbox = RectF.empty
   @scale = 1_f32
   @renderer : GlyphRenderer
+  @glyphs_rendered = 0
 
   def initialize(@renderer)
   end
 
-  def set_origin(@origin : Vec2f)
-    @x = @origin.x
-    @y = @origin.y
+  def set_bbox(@bbox : RectF)
+    @x = @bbox.left
+    @y = @bbox.top - @renderer.font_family[FontFamily::Variant::Regular].ascender
+  end
+
+  def set_offset_y(y : Float32)
+    @y = @bbox.top - @renderer.font_family[FontFamily::Variant::Regular].ascender + y
   end
 
   def newline(variant : FontFamily::Variant = Regular)
     font = @renderer.font_family[variant]
     @y -= font.height
-    @x = @origin.x
+    @x = @bbox.left
   end
 
   def add_span(text : String, color : Vec3f, variant : FontFamily::Variant = Regular)
     font = @renderer.font_family[variant]
 
     text.each_char do |c|
+      break if @y + font.ascender < @bbox.bottom
+
       if c == '\n'
         newline variant
         next
       end
 
+      next if @y - font.descender > @bbox.top
+
       next unless font.has_key?(c)
       ch = font[c]
 
-      if c != ' '
+      if c != ' ' && @x <= @bbox.right
         pos = Vec2f.new(@x + ch.bearing.x * @scale,
                         @y - (ch.size.y - ch.bearing.y) * @scale)
         size = Vec2f.new(ch.size.x * @scale,
                          ch.size.y * @scale)
 
         @renderer << RenderGlyph.new(pos, size, ch.top_left, ch.bottom_right, color, variant.value)
+        @glyphs_rendered += 1
       end
 
       @x += (ch.advance >> 6) * @scale
     end
   end
+
+  getter glyphs_rendered
 end

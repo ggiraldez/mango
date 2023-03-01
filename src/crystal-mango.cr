@@ -39,9 +39,19 @@ class App
     end
   end
 
+  @y : Float32 = 0
+
   def render_para(para : String, size)
+    pad_x = 50_f32
+    pad_y = 50_f32
+
+    rect = RectF.new(pad_x, size[:height] - pad_y, size[:width] - pad_x, pad_y)
+    LibGL.enable(LibGL::SCISSOR_TEST)
+    LibGL.scissor(rect.left, rect.bottom, rect.width, rect.height)
+
     p = renderer.new_paragraph
-    p.set_origin(Vec2f.new(12_f32, (size[:height] - renderer.font_family.regular.height).to_f32))
+    p.set_bbox(rect)
+    p.set_offset_y(@y)
 
     projection = Mat4f.ortho(0, size[:width].to_f32, 0, size[:height].to_f32)
     renderer.program.use
@@ -54,7 +64,11 @@ class App
       p.add_span span + " ", colors[i % 3], FontFamily::Variant.new(i % FontFamily::Variant.values.size)
     end
     renderer.flush
+
+    LibGL.disable(LibGL::SCISSOR_TEST)
   end
+
+  @dy : Float32 = 0
 
   def process_input
     if window.key_pressed?(Key::Escape) || window.key_pressed?(Key::Q)
@@ -69,6 +83,20 @@ class App
     else
       LibGL.polygon_mode(LibGL::FRONT_AND_BACK, LibGL::FILL)
     end
+
+    accel = 5_f32
+    decel = 3_f32
+    max_dy = 40_f32
+    if window.key_pressed?(Key::PageUp)
+      @dy = (@dy - accel).clamp(-max_dy, 0_f32)
+    elsif window.key_pressed?(Key::PageDown)
+      @dy = (@dy + accel).clamp(0_f32, max_dy)
+    elsif @dy > 0
+      @dy = (@dy - decel).clamp(0_f32, max_dy)
+    elsif @dy < 0
+      @dy = (@dy + decel).clamp(-max_dy, 0_f32)
+    end
+    @y += @dy
   end
 
   def query_info
@@ -106,6 +134,9 @@ class App
       LibGL.enable(LibGL::BLEND)
       LibGL.blend_func(LibGL::SRC_ALPHA, LibGL::ONE_MINUS_SRC_ALPHA)
 
+      frames = 0
+      frames_begin = CrystGLFW.time
+
       until window.should_close?
         CrystGLFW.poll_events
         process_input
@@ -118,6 +149,14 @@ class App
         render_para lines, window.size
 
         window.swap_buffers
+
+        frames += 1
+        if frames > 30
+          frames_end = CrystGLFW.time
+          puts "FPS: #{frames / (frames_end - frames_begin)}"
+          frames_begin = frames_end
+          frames = 0
+        end
       end
 
       window.destroy
