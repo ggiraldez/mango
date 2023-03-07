@@ -3,6 +3,7 @@ require "crystglfw"
 require "./shader"
 require "./texture_font"
 require "./paragraph"
+require "./highlighter"
 require "./wavy_quad"
 
 include CrystGLFW
@@ -68,6 +69,29 @@ class App
     LibGL.disable(LibGL::SCISSOR_TEST)
   end
 
+  def render_code(code : String, size)
+    pad_x = 50_f32
+    pad_y = 50_f32
+
+    rect = RectF.new(pad_x, size[:height] - pad_y, size[:width] - pad_x, pad_y)
+    LibGL.enable(LibGL::SCISSOR_TEST)
+    LibGL.scissor(rect.left, rect.bottom, rect.width, rect.height)
+
+    p = renderer.new_paragraph
+    p.set_bbox(rect)
+    p.set_offset_y(@y)
+
+    projection = Mat4f.ortho(0, size[:width].to_f32, 0, size[:height].to_f32)
+    renderer.program.use
+    renderer.program.set_uniform "projection", projection
+
+    highlighter = Highligher.new(p)
+    highlighter.highlight(code)
+    renderer.flush
+
+    LibGL.disable(LibGL::SCISSOR_TEST)
+  end
+
   @dy : Float32 = 0
 
   def process_input
@@ -121,7 +145,7 @@ class App
 
       wavy_quad = WavyQuad.new
 
-      fonts = FontFamily.load(18,
+      fonts = FontFamily.load(16,
                               "fonts/RobotoMono-Regular.ttf",
                               "fonts/RobotoMono-Bold.ttf",
                               "fonts/RobotoMono-Italic.ttf",
@@ -129,7 +153,7 @@ class App
 
       @renderer = GlyphRenderer.new(fonts)
 
-      lines = File.read("src/crystal-mango.cr")
+      source = File.read("src/crystal-mango.cr")
 
       LibGL.enable(LibGL::BLEND)
       LibGL.blend_func(LibGL::SRC_ALPHA, LibGL::ONE_MINUS_SRC_ALPHA)
@@ -146,7 +170,8 @@ class App
 
         aspect_ratio = window.size[:width].to_f32 / window.size[:height].to_f32
         wavy_quad.render aspect_ratio
-        render_para lines, window.size
+        # render_para source, window.size
+        render_code source, window.size
 
         window.swap_buffers
 

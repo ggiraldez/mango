@@ -252,7 +252,7 @@ class Paragraph
     @y = @bbox.top - @renderer.font_family[FontFamily::Variant::Regular].ascender + y
   end
 
-  def newline(variant : FontFamily::Variant = Regular)
+  def newline(variant : FontFamily::Variant = FontFamily::Variant::Regular)
     font = @renderer.font_family[variant]
     @y -= font.height
     @x = @bbox.left

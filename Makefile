@@ -1,10 +1,15 @@
 CRYSTAL := crystal
+SOURCE := src/crystal-mango.cr
+OUTPUT := mango
 
 run:
-	$(CRYSTAL) src/crystal-mango.cr
+	$(CRYSTAL) $(SOURCE)
 
 mango:
-	$(CRYSTAL) build -o mango src/crystal-mango.cr
+	$(CRYSTAL) build -o $(OUTPUT) $(SOURCE)
+
+release:
+	$(CRYSTAL) build -o $(OUTPUT) --release $(SOURCE)
 
 clean:
 	rm -f mango
