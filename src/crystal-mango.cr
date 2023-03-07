@@ -42,33 +42,6 @@ class App
 
   @y : Float32 = 0
 
-  def render_para(para : String, size)
-    pad_x = 50_f32
-    pad_y = 50_f32
-
-    rect = RectF.new(pad_x, size[:height] - pad_y, size[:width] - pad_x, pad_y)
-    LibGL.enable(LibGL::SCISSOR_TEST)
-    LibGL.scissor(rect.left, rect.bottom, rect.width, rect.height)
-
-    p = renderer.new_paragraph
-    p.set_bbox(rect)
-    p.set_offset_y(@y)
-
-    projection = Mat4f.ortho(0, size[:width].to_f32, 0, size[:height].to_f32)
-    renderer.program.use
-    renderer.program.set_uniform "projection", projection
-
-    colors = [Vec3f.new(0.9, 0.9, 0.9),
-              Vec3f.new(0.9, 0.9, 0.1),
-              Vec3f.new(0.1, 0.9, 0.1)]
-    para.split(" ").each_with_index do |span, i|
-      p.add_span span + " ", colors[i % 3], FontFamily::Variant.new(i % FontFamily::Variant.values.size)
-    end
-    renderer.flush
-
-    LibGL.disable(LibGL::SCISSOR_TEST)
-  end
-
   def render_code(code : String, size)
     pad_x = 50_f32
     pad_y = 50_f32
@@ -137,7 +110,9 @@ class App
     puts "Max texture units #{max_texture_units}"
   end
 
-  def run
+  def run(filename : String)
+    source_code = File.read(filename)
+
     CrystGLFW.run do
       create_window
 
@@ -152,8 +127,6 @@ class App
                               "fonts/RobotoMono-BoldItalic.ttf")
 
       @renderer = GlyphRenderer.new(fonts)
-
-      source = File.read("src/crystal-mango.cr")
 
       LibGL.enable(LibGL::BLEND)
       LibGL.blend_func(LibGL::SRC_ALPHA, LibGL::ONE_MINUS_SRC_ALPHA)
@@ -170,15 +143,15 @@ class App
 
         aspect_ratio = window.size[:width].to_f32 / window.size[:height].to_f32
         wavy_quad.render aspect_ratio
-        # render_para source, window.size
-        render_code source, window.size
+        render_code source_code, window.size
 
         window.swap_buffers
 
         frames += 1
         if frames > 30
           frames_end = CrystGLFW.time
-          puts "FPS: #{frames / (frames_end - frames_begin)}"
+          puts "FPS: #{frames / (frames_end - frames_begin)}; flushes: #{renderer.flushes / frames}/frame"
+          renderer.reset_flushes
           frames_begin = frames_end
           frames = 0
         end
@@ -189,4 +162,4 @@ class App
   end
 end
 
-App.new.run
+App.new.run(ARGV.first? || "src/crystal-mango.cr")

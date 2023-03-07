@@ -156,7 +156,7 @@ class GlyphRenderer
   getter font_family
 
   def initialize(@font_family)
-    @vbo = checked RenderGlyphVbo.new(1024)
+    @vbo = checked RenderGlyphVbo.new(4096)
     @vao = checked RenderGlyphVao.new(@vbo)
     @program = checked ShaderProgram.build(vertex: File.read("shaders/glyph/vertex.glsl"),
                                            fragment: File.read("shaders/glyph/fragment.glsl"),
@@ -189,7 +189,15 @@ class GlyphRenderer
     @vbo << render_glyph
   end
 
+  getter flushes : Int32 = 0
+
+  def reset_flushes
+    @flushes = 0
+  end
+
   def flush
+    @flushes += 1
+
     bind_font_family
 
     @program.use
