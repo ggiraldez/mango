@@ -64,25 +64,25 @@ class WavyQuad
     # position attribute
     LibGL.vertex_attrib_pointer(0, 3, LibGL::FLOAT, LibGL::FALSE,
                                 stride * sizeof(LibGL::Float),
-                                Pointer(Void).new(0))
+                                nil)
     LibGL.enable_vertex_attrib_array(0)
 
     # color attribute
     LibGL.vertex_attrib_pointer(1, 3, LibGL::FLOAT, LibGL::FALSE,
                                 stride * sizeof(LibGL::Float),
-                                Pointer(Void).new(3 * sizeof(LibGL::Float)))
+                                Pointer(Void).new(3_u64 * sizeof(LibGL::Float)))
     LibGL.enable_vertex_attrib_array(1)
 
     # texture attribute
     LibGL.vertex_attrib_pointer(2, 2, LibGL::FLOAT, LibGL::FALSE,
                                 stride * sizeof(LibGL::Float),
-                                Pointer(Void).new(6 * sizeof(LibGL::Float)))
+                                Pointer(Void).new(6_u64 * sizeof(LibGL::Float)))
     LibGL.enable_vertex_attrib_array(2)
 
     # other attribute
     LibGL.vertex_attrib_pointer(3, 1, LibGL::FLOAT, LibGL::FALSE,
                                 stride * sizeof(LibGL::Float),
-                                Pointer(Void).new(8 * sizeof(LibGL::Float)))
+                                Pointer(Void).new(8_u64 * sizeof(LibGL::Float)))
     LibGL.enable_vertex_attrib_array(3)
   end
 
@@ -127,7 +127,7 @@ class WavyQuad
     LibGL.bind_vertex_array @vao
     LibGL.draw_elements(LibGL::TRIANGLES, 6,
                         LibGL::UNSIGNED_INT,
-                        Pointer(Void).new(0))
+                        nil)
     LibGL.bind_vertex_array 0
   end
 end

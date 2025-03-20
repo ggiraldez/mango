@@ -43,37 +43,37 @@ class RenderGlyphVao
     # position attribute (vec2f)
     LibGL.vertex_attrib_pointer(0, 2, LibGL::FLOAT, LibGL::FALSE,
                                 sizeof(RenderGlyph),
-                                Pointer(Void).new(offsetof(RenderGlyph, @pos)))
+                                Pointer(Void).new(offsetof(RenderGlyph, @pos).to_u64))
     LibGL.enable_vertex_attrib_array(0)
 
     # glyph size attribute (vec2f)
     LibGL.vertex_attrib_pointer(1, 2, LibGL::FLOAT, LibGL::FALSE,
                                 sizeof(RenderGlyph),
-                                Pointer(Void).new(offsetof(RenderGlyph, @size)))
+                                Pointer(Void).new(offsetof(RenderGlyph, @size).to_u64))
     LibGL.enable_vertex_attrib_array(1)
 
     # texture top left coords
     LibGL.vertex_attrib_pointer(2, 2, LibGL::FLOAT, LibGL::FALSE,
                                 sizeof(RenderGlyph),
-                                Pointer(Void).new(offsetof(RenderGlyph, @tex_top_left)))
+                                Pointer(Void).new(offsetof(RenderGlyph, @tex_top_left).to_u64))
     LibGL.enable_vertex_attrib_array(2)
 
     # texture bottom right coords
     LibGL.vertex_attrib_pointer(3, 2, LibGL::FLOAT, LibGL::FALSE,
                                 sizeof(RenderGlyph),
-                                Pointer(Void).new(offsetof(RenderGlyph, @tex_bottom_right)))
+                                Pointer(Void).new(offsetof(RenderGlyph, @tex_bottom_right).to_u64))
     LibGL.enable_vertex_attrib_array(3)
 
     # color
     LibGL.vertex_attrib_pointer(4, 3, LibGL::FLOAT, LibGL::FALSE,
                                 sizeof(RenderGlyph),
-                                Pointer(Void).new(offsetof(RenderGlyph, @color)))
+                                Pointer(Void).new(offsetof(RenderGlyph, @color).to_u64))
     LibGL.enable_vertex_attrib_array(4)
 
     # texture selector
     LibGL.vertex_attrib_i_pointer(5, 1, LibGL::INT,
                                   sizeof(RenderGlyph),
-                                  Pointer(Void).new(offsetof(RenderGlyph, @tex_selector)))
+                                  Pointer(Void).new(offsetof(RenderGlyph, @tex_selector).to_u64))
     LibGL.enable_vertex_attrib_array(5)
   end
 

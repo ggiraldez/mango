@@ -2,7 +2,7 @@ version: 2.0
 shards:
   crystglfw:
     git: https://github.com/calebuharrison/crystglfw.git
-    version: 0.2.0+git.commit.53de73c6ec07999ad11c42512929f0eff6f617a9
+    version: 0.3.0+git.commit.ef6f2e196b94125a9fbd0324c4ab812bccdfe7ea
 
   lib_gl:
     git: https://github.com/calebuharrison/libgl.git

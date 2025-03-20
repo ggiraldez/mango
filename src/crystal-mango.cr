@@ -9,16 +9,8 @@ require "./wavy_quad"
 include CrystGLFW
 
 class App
-  @window : CrystGLFW::Window?
-  @renderer : GlyphRenderer?
-
-  def window
-    @window.not_nil!
-  end
-
-  def renderer
-    @renderer.not_nil!
-  end
+  getter! window : CrystGLFW::Window
+  getter! renderer : GlyphRenderer
 
   def create_window
     # Request a specific version of OpenGL in core profile mode with forward
